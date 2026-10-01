@@ -1,10 +1,3 @@
-```python
-"""
-Django settings for ICT_CLUB project.
-
-Render-ready configuration.
-"""
-
 from pathlib import Path
 import os
 import secrets
@@ -453,4 +446,3 @@ DATA_UPLOAD_MAX_NUMBER_FIELDS = 1000
 DEFAULT_AUTO_FIELD = (
     "django.db.models.BigAutoField"
 )
-```
