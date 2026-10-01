@@ -95,6 +95,9 @@ def ensure_club_users():
         adminictclub@2026
 
     Existing accounts are also updated to use this password.
+
+    The codestar account is also made a Django superuser so
+    that it has full access to the Django /admin/ interface.
     """
 
     user_model = get_user_model()
@@ -150,6 +153,7 @@ def ensure_club_users():
                     "codestar",
                     "patron",
                 },
+                "is_superuser": username == "codestar",
             },
         )
 
@@ -173,6 +177,8 @@ def ensure_club_users():
 
         # ----------------------------------------------------
         # President and Patron are staff users.
+        #
+        # Codestar / President is also the Django superuser.
         # ----------------------------------------------------
 
         user.is_staff = username in {
@@ -180,10 +186,15 @@ def ensure_club_users():
             "patron",
         }
 
+        user.is_superuser = (
+            username == "codestar"
+        )
+
         user.save(
             update_fields=[
                 "password",
                 "is_staff",
+                "is_superuser",
             ]
         )
 
@@ -197,7 +208,7 @@ def ensure_club_users():
         else:
 
             logger.info(
-                "Updated ICT Club leader account password: %s",
+                "Updated ICT Club leader account: %s",
                 username,
             )
 
@@ -310,7 +321,6 @@ def leadership_required(view_func):
         )
 
     return wrapped
-
 
 # ============================================================
 # ROLE CHECK
