@@ -2,14 +2,14 @@
 """
 Django settings for ICT_CLUB project.
 
-Production-ready configuration for:
+Configured for:
 - Local development
 - Render deployment
-- WhiteNoise static files
-- Environment-based secrets
-- HTTPS/security settings
-- SQLite database
-- ICT Club leader initial passwords
+- Django 5.2
+- WhiteNoise
+- SQLite
+- Environment variables
+- ICT Club leader accounts
 """
 
 from pathlib import Path
@@ -29,34 +29,24 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # ENVIRONMENT HELPERS
 # ============================================================
 
-def env_bool(name, default=False):
-    """
-    Read a boolean environment variable safely.
-
-    Examples:
-        true, 1, yes, on  -> True
-        false, 0, no, off -> False
-    """
+def get_bool(name, default=False):
     value = os.environ.get(name)
 
     if value is None:
         return default
 
-    return value.strip().lower() in {
+    return value.strip().lower() in (
         "true",
         "1",
         "yes",
         "on",
-    }
+    )
 
 
-def env_list(name, default=None):
-    """
-    Read a comma-separated environment variable.
-    """
+def get_list(name, default=None):
     value = os.environ.get(name)
 
-    if value is None:
+    if not value:
         return default or []
 
     return [
@@ -67,22 +57,20 @@ def env_list(name, default=None):
 
 
 # ============================================================
-# SECURITY
+# SECRET KEY
 # ============================================================
 
-# IMPORTANT:
-# Set DJANGO_SECRET_KEY in Render Environment Variables.
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
 
 if not SECRET_KEY:
-    if env_bool("DJANGO_DEBUG", default=False):
-        # Development-only fallback.
+    if get_bool("DJANGO_DEBUG", True):
+        # Only used during local development.
         SECRET_KEY = (
-            "django-insecure-local-development-only-do-not-use-in-production"
+            "django-insecure-local-development-only"
         )
     else:
         raise ImproperlyConfigured(
-            "DJANGO_SECRET_KEY must be set when DEBUG=False."
+            "DJANGO_SECRET_KEY must be configured in production."
         )
 
 
@@ -90,8 +78,14 @@ if not SECRET_KEY:
 # DEBUG
 # ============================================================
 
-# Production default is FALSE.
-DEBUG = env_bool("DJANGO_DEBUG", default=False)
+# IMPORTANT:
+# Render should have:
+#
+# DJANGO_DEBUG=false
+#
+# Local development defaults to True if the variable is absent.
+
+DEBUG = get_bool("DJANGO_DEBUG", True)
 
 
 # ============================================================
@@ -102,27 +96,24 @@ ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
     "testserver",
+    "ictclub-website.onrender.com",
 ]
 
 
-# Render automatically provides this environment variable.
-RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
+# Render automatically provides the deployed hostname.
+RENDER_EXTERNAL_HOSTNAME = os.environ.get(
+    "RENDER_EXTERNAL_HOSTNAME"
+)
 
 if RENDER_EXTERNAL_HOSTNAME:
-    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+    if RENDER_EXTERNAL_HOSTNAME not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
 
-# Your current Render hostname.
-if "ictclub-website.onrender.com" not in ALLOWED_HOSTS:
-    ALLOWED_HOSTS.append("ictclub-website.onrender.com")
-
-
-# Additional hosts can be supplied through Render if needed.
-ALLOWED_HOSTS.extend(
-    host
-    for host in env_list("DJANGO_ALLOWED_HOSTS")
-    if host not in ALLOWED_HOSTS
-)
+# Additional hosts can be supplied through Render.
+for host in get_list("DJANGO_ALLOWED_HOSTS"):
+    if host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(host)
 
 
 # ============================================================
@@ -133,14 +124,13 @@ CSRF_TRUSTED_ORIGINS = [
     "https://ictclub-website.onrender.com",
 ]
 
-# Allow additional origins through environment variables.
-for origin in env_list("DJANGO_CSRF_TRUSTED_ORIGINS"):
+for origin in get_list("DJANGO_CSRF_TRUSTED_ORIGINS"):
     if origin not in CSRF_TRUSTED_ORIGINS:
         CSRF_TRUSTED_ORIGINS.append(origin)
 
 
 # ============================================================
-# PUBLIC WEBSITE URL
+# PUBLIC BASE URL
 # ============================================================
 
 PUBLIC_BASE_URL = os.environ.get(
@@ -153,22 +143,41 @@ PUBLIC_BASE_URL = os.environ.get(
 # ICT CLUB INITIAL LEADER PASSWORDS
 # ============================================================
 
-LEADER_USERNAMES = (
-    "codestar",
-    "patron",
-    "secretary",
-    "speaker",
-    "treasurer",
-    "projectsmanager",
-    "mobiliser",
-)
-
 LEADER_INITIAL_PASSWORDS = {
-    username: os.environ.get(
-        f"ICT_CLUB_INITIAL_PASSWORD_{username.upper()}",
+    "codestar": os.environ.get(
+        "ICT_CLUB_INITIAL_PASSWORD_CODESTAR",
         "",
-    )
-    for username in LEADER_USERNAMES
+    ),
+
+    "patron": os.environ.get(
+        "ICT_CLUB_INITIAL_PASSWORD_PATRON",
+        "",
+    ),
+
+    "secretary": os.environ.get(
+        "ICT_CLUB_INITIAL_PASSWORD_SECRETARY",
+        "",
+    ),
+
+    "speaker": os.environ.get(
+        "ICT_CLUB_INITIAL_PASSWORD_SPEAKER",
+        "",
+    ),
+
+    "treasurer": os.environ.get(
+        "ICT_CLUB_INITIAL_PASSWORD_TREASURER",
+        "",
+    ),
+
+    "projectsmanager": os.environ.get(
+        "ICT_CLUB_INITIAL_PASSWORD_PROJECTSMANAGER",
+        "",
+    ),
+
+    "mobiliser": os.environ.get(
+        "ICT_CLUB_INITIAL_PASSWORD_MOBILISER",
+        "",
+    ),
 }
 
 
@@ -196,7 +205,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
 
-    # WhiteNoise serves static files directly from Django.
+    # WhiteNoise for static files.
     "whitenoise.middleware.WhiteNoiseMiddleware",
 
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -221,7 +230,9 @@ ROOT_URLCONF = "ICT_CLUB.urls"
 
 TEMPLATES = [
     {
-        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "BACKEND": (
+            "django.template.backends.django.DjangoTemplates"
+        ),
 
         "DIRS": [
             BASE_DIR / "templates",
@@ -254,13 +265,8 @@ WSGI_APPLICATION = "ICT_CLUB.wsgi.application"
 # DATABASE
 # ============================================================
 
-# IMPORTANT:
-# This keeps your current SQLite database setup.
-#
-# SQLite is fine for getting the website running.
-# For a serious multi-user production system, especially one
-# storing important school records, PostgreSQL is recommended
-# later.
+# Keep SQLite for now so the existing project continues
+# working without requiring a database migration.
 
 DATABASES = {
     "default": {
@@ -281,18 +287,21 @@ AUTH_PASSWORD_VALIDATORS = [
             "UserAttributeSimilarityValidator"
         ),
     },
+
     {
         "NAME": (
             "django.contrib.auth.password_validation."
             "MinimumLengthValidator"
         ),
     },
+
     {
         "NAME": (
             "django.contrib.auth.password_validation."
             "CommonPasswordValidator"
         ),
     },
+
     {
         "NAME": (
             "django.contrib.auth.password_validation."
@@ -324,16 +333,20 @@ STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
 
-# WhiteNoise storage with compression and hashed filenames.
+# Keep the standard storage backend because it is
+# compatible with your existing project.
+
 STORAGES = {
     "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "BACKEND": (
+            "django.core.files.storage.FileSystemStorage"
+        ),
     },
 
     "staticfiles": {
         "BACKEND": (
             "whitenoise.storage."
-            "CompressedManifestStaticFilesStorage"
+            "CompressedStaticFilesStorage"
         ),
     },
 }
@@ -357,12 +370,16 @@ EMAIL_HOST = os.environ.get(
     "smtp.gmail.com",
 )
 
-EMAIL_PORT = int(
-    os.environ.get(
-        "ICT_CLUB_EMAIL_PORT",
-        "587",
+try:
+    EMAIL_PORT = int(
+        os.environ.get(
+            "ICT_CLUB_EMAIL_PORT",
+            "587",
+        )
     )
-)
+except ValueError:
+    EMAIL_PORT = 587
+
 
 EMAIL_HOST_USER = os.environ.get(
     "ICT_CLUB_EMAIL_USER",
@@ -374,19 +391,22 @@ EMAIL_HOST_PASSWORD = os.environ.get(
     "",
 )
 
-EMAIL_USE_TLS = env_bool(
+EMAIL_USE_TLS = get_bool(
     "ICT_CLUB_EMAIL_USE_TLS",
-    default=True,
+    True,
 )
 
 
-# Use SMTP when credentials exist.
-# Otherwise use console backend during development.
+# Use SMTP only when credentials have been configured.
 if EMAIL_HOST_USER and EMAIL_HOST_PASSWORD:
+
     EMAIL_BACKEND = (
         "django.core.mail.backends.smtp.EmailBackend"
     )
+
 else:
+
+    # Safe fallback for development.
     EMAIL_BACKEND = (
         "django.core.mail.backends.console.EmailBackend"
     )
@@ -399,21 +419,26 @@ DEFAULT_FROM_EMAIL = os.environ.get(
 
 
 # ============================================================
-# HTTPS / PROXY SECURITY
+# RENDER / HTTPS
 # ============================================================
 
-# Render terminates HTTPS at its proxy and forwards the request
-# to Django. This tells Django to trust Render's HTTPS header.
+# Render uses a reverse proxy.
 SECURE_PROXY_SSL_HEADER = (
     "HTTP_X_FORWARDED_PROTO",
     "https",
 )
 
 
-# Redirect HTTP requests to HTTPS in production.
-SECURE_SSL_REDIRECT = env_bool(
+# Do NOT force HTTPS by default yet.
+#
+# Once the website is confirmed working correctly on Render,
+# you can set:
+#
+# DJANGO_SECURE_SSL_REDIRECT=true
+#
+SECURE_SSL_REDIRECT = get_bool(
     "DJANGO_SECURE_SSL_REDIRECT",
-    default=True,
+    False,
 )
 
 
@@ -425,14 +450,7 @@ SESSION_COOKIE_SECURE = not DEBUG
 
 CSRF_COOKIE_SECURE = not DEBUG
 
-
-# Prevent JavaScript from accessing the session cookie.
 SESSION_COOKIE_HTTPONLY = True
-
-
-# ============================================================
-# COOKIE SETTINGS
-# ============================================================
 
 SESSION_COOKIE_SAMESITE = "Lax"
 
@@ -440,52 +458,47 @@ CSRF_COOKIE_SAMESITE = "Lax"
 
 
 # ============================================================
-# SECURITY HEADERS
+# BASIC SECURITY HEADERS
 # ============================================================
-
-SECURE_BROWSER_XSS_FILTER = True
 
 SECURE_CONTENT_TYPE_NOSNIFF = True
 
 X_FRAME_OPTIONS = "DENY"
+
+SECURE_REFERRER_POLICY = "same-origin"
 
 
 # ============================================================
 # HSTS
 # ============================================================
 
-# HSTS tells browsers to use HTTPS for this site.
-#
-# Start conservatively. Once HTTPS is confirmed to work
-# correctly, this can safely be increased.
+# Disabled by default to avoid locking the site into HTTPS
+# before deployment has been fully verified.
 
 SECURE_HSTS_SECONDS = int(
     os.environ.get(
         "DJANGO_SECURE_HSTS_SECONDS",
-        "31536000" if not DEBUG else "0",
+        "0",
     )
 )
 
-SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
+SECURE_HSTS_INCLUDE_SUBDOMAINS = (
+    SECURE_HSTS_SECONDS > 0
+)
 
-SECURE_HSTS_PRELOAD = not DEBUG
-
-
-# ============================================================
-# CONTENT SECURITY / REFERRER
-# ============================================================
-
-SECURE_REFERRER_POLICY = "same-origin"
+SECURE_HSTS_PRELOAD = (
+    SECURE_HSTS_SECONDS > 0
+)
 
 
 # ============================================================
-# FILE UPLOAD LIMIT
+# FILE UPLOAD LIMITS
 # ============================================================
 
-# Maximum request body size: 10 MB.
-DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
+DATA_UPLOAD_MAX_MEMORY_SIZE = (
+    10 * 1024 * 1024
+)
 
-# Maximum number of uploaded fields.
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 1000
 
 
@@ -493,24 +506,7 @@ DATA_UPLOAD_MAX_NUMBER_FIELDS = 1000
 # DEFAULT PRIMARY KEY
 # ============================================================
 
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
-
-# ============================================================
-# PRODUCTION VALIDATION
-# ============================================================
-
-if not DEBUG:
-
-    # Production must have a real secret key.
-    if not os.environ.get("DJANGO_SECRET_KEY"):
-        raise ImproperlyConfigured(
-            "DJANGO_SECRET_KEY is required in production."
-        )
-
-    # Production should not accidentally use localhost only.
-    if not ALLOWED_HOSTS:
-        raise ImproperlyConfigured(
-            "ALLOWED_HOSTS must contain at least one host."
-        )
+DEFAULT_AUTO_FIELD = (
+    "django.db.models.BigAutoField"
+)
 ```
