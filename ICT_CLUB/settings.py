@@ -33,9 +33,10 @@ if not DEBUG and not os.environ.get('DJANGO_SECRET_KEY'):
 	raise ImproperlyConfigured('Set DJANGO_SECRET_KEY whenever Django DEBUG is disabled.')
 
 ALLOWED_HOSTS = [
-	host.strip()
-	for host in os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver').split(',')
-	if host.strip()
+    'localhost',
+    '127.0.0.1',
+    'testserver',
+    'ictclub-website.onrender.com',
 ]
 CSRF_TRUSTED_ORIGINS = [
 	origin.strip()
