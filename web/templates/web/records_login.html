@@ -1,0 +1,24 @@
+{% extends 'web/base.html' %}
+
+{% block title %}Leadership sign in | BSK ICT Club{% endblock %}
+{% block robots_directive %}noindex,nofollow{% endblock %}
+
+{% block content %}
+<section class="page-hero page-hero-compact">
+    <div class="container">
+        <p class="eyebrow">Leadership access</p>
+        <h1>Sign <em>in</em></h1>
+        <p class="page-lede">Sign in with your club records account.</p>
+    </div>
+</section>
+<section class="section light-section">
+    <div class="container records-login-wrap">
+        <form class="records-form" method="post">
+            {% csrf_token %}
+            {{ form.non_field_errors }}
+            {{ form.as_p }}
+            <button class="button button-primary" type="submit">Sign in</button>
+        </form>
+    </div>
+</section>
+{% endblock %}

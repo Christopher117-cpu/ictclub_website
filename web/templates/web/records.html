@@ -1,0 +1,337 @@
+{% extends 'web/base.html' %}
+
+{% block title %}Club records | BSK ICT Club{% endblock %}
+{% block robots_directive %}noindex,nofollow{% endblock %}
+
+{% block content %}
+<section class="page-hero page-hero-compact records-hero">
+    <div class="container records-heading">
+        <div>
+            <p class="eyebrow">Leadership workspace</p>
+            <h1>Club <em>records</em></h1>
+            <p class="page-lede">Members, attendance, fee balances, projects and club activity history.</p>
+        </div>
+        <form method="post" action="{% url 'records_logout' %}">
+            {% csrf_token %}
+            <button class="button button-light" type="submit">Sign out</button>
+        </form>
+    </div>
+</section>
+
+<section class="section records-section">
+    <div class="container">
+        {% if notifications %}
+        <section class="record-block record-notifications" aria-labelledby="notifications-heading">
+            <div class="record-title-row"><div><p class="eyebrow blue">Since your last visit</p><h2 id="notifications-heading">Club changes</h2></div></div>
+            <ul class="audit-list">{% for log in notifications %}<li data-audit-created="{{ log.created_at|date:'c' }}"><strong>{{ log.action|title }}: {{ log.object_name }}</strong><span>{{ log.details }}</span><small>{{ log.actor.username|default:'System' }} · {{ log.created_at|date:'d M Y H:i' }}</small></li>{% endfor %}</ul>
+        </section>
+        {% endif %}
+
+        {% if unread_contact_count %}
+        <p class="contact-inbox-notice" role="status" aria-live="polite">
+            You have {{ unread_contact_count }} unread website message{{ unread_contact_count|pluralize }}.
+            <a href="#contact-inbox-heading">Review the contact inbox</a>
+        </p>
+        {% endif %}
+
+        <section class="record-block contact-inbox" aria-labelledby="contact-inbox-heading">
+            <div class="record-title-row">
+                <div>
+                    <p class="eyebrow blue">Messages from the website</p>
+                    <h2 id="contact-inbox-heading">Contact inbox <span class="inbox-count" aria-label="{{ unread_contact_count }} unread messages">{{ unread_contact_count }} unread</span></h2>
+                    <p class="records-hint">Messages are visible to all club leaders. Unread counts are personal to your account.</p>
+                </div>
+            </div>
+            <div class="contact-inbox-list">
+                {% for contact_message in contact_message_page %}
+                    <article class="contact-inbox-item{% if request.user not in contact_message.read_by.all %} contact-inbox-unread{% endif %}">
+                        <div class="contact-inbox-header">
+                            <div>
+                                <h3>{{ contact_message.name }}</h3>
+                                <a href="mailto:{{ contact_message.email }}">{{ contact_message.email }}</a>
+                            </div>
+                            <time datetime="{{ contact_message.created_at|date:'c' }}">{{ contact_message.created_at|date:'d M Y H:i' }}</time>
+                        </div>
+                        <p class="contact-inbox-message">{{ contact_message.message|linebreaksbr }}</p>
+                        {% if request.user not in contact_message.read_by.all %}
+                            <form method="post" action="{% url 'mark_contact_message_read' contact_message.id %}">
+                                {% csrf_token %}
+                                <button class="button button-outline" type="submit">Mark as read</button>
+                            </form>
+                        {% else %}
+                            <small class="contact-inbox-read-label">Read by you</small>
+                        {% endif %}
+                    </article>
+                {% empty %}
+                    <p class="records-empty">No messages have been received through the contact form yet.</p>
+                {% endfor %}
+            </div>
+            {% if contact_message_page.paginator.num_pages > 1 %}
+            <nav class="fee-pagination" aria-label="Contact inbox pages">
+                {% if contact_message_page.has_previous %}<a class="button button-outline" href="?contact_page={{ contact_message_page.previous_page_number }}#contact-inbox-heading">Previous messages</a>{% endif %}
+                <div class="fee-page-links">{% for page_number in contact_message_page_range %}{% if page_number == contact_message_page.paginator.ELLIPSIS %}<span aria-hidden="true">…</span>{% elif page_number == contact_message_page.number %}<span class="current-fee-page" aria-current="page">{{ page_number }}</span>{% else %}<a href="?contact_page={{ page_number }}#contact-inbox-heading">{{ page_number }}</a>{% endif %}{% endfor %}</div>
+                {% if contact_message_page.has_next %}<a class="button button-outline" href="?contact_page={{ contact_message_page.next_page_number }}#contact-inbox-heading">Older messages</a>{% endif %}
+            </nav>
+            {% endif %}
+        </section>
+
+        <div class="records-overview" aria-label="Club record summary">
+            <div><span>Members</span><strong>{{ member_count }}</strong></div>
+            <div><span>Active projects</span><strong>{{ projects|length }}</strong></div>
+            <div><span>Project fee entries</span><strong>{{ project_fees|length }}</strong></div>
+            <div><span>Academic period</span><strong>{{ current_period.academic_year }} / T{{ current_period.term }}</strong></div>
+        </div>
+
+        <section class="record-block" aria-labelledby="members-heading">
+            <div class="record-title-row">
+                <div>
+                    <p class="eyebrow blue">Member register</p>
+                    <h2 id="members-heading">Members <span>{{ member_count }}</span></h2>
+                </div>
+            </div>
+            <form class="records-form member-form" method="post" action="{% url 'add_member' %}">
+                {% csrf_token %}
+                <h3>Add a member</h3>
+                <div class="record-fields">{{ member_form.as_p }}</div>
+                <button class="button button-primary" type="submit">Add member</button>
+            </form>
+            <div class="records-table-wrap">
+                <table class="records-table">
+                    <thead><tr><th>Name</th><th>Class</th><th>Membership fee paid / due</th><th>Meetings attended</th><th></th></tr></thead>
+                    <tbody>
+                    {% for member in members %}
+                        <tr>
+                            <td><strong>{{ member.name }}</strong>{% if member.email %}<small>{{ member.email }}</small>{% endif %}</td>
+                            <td>{{ member.class_name|default:'-' }}</td>
+                            <td><span class="fee-paid">{{ member.membership_fee_paid|floatformat:2 }}</span><span class="fee-separator"> / </span><span class="fee-due">{{ member.membership_fee_due|floatformat:2 }}</span>{% if member.fee_status %}<br><small>{{ member.fee_status }}</small>{% endif %}</td>
+                            <td>{{ member.present_count }}</td>
+                            <td>
+                                {% if not member.is_leader or can_remove_leaders %}
+                                <form method="post" action="{% url 'remove_member' member.id %}" onsubmit="return confirm('Remove {{ member.name|escapejs }} from the club?');">
+                                    {% csrf_token %}
+                                    <label class="sr-only" for="reason-{{ member.id }}">Reason for removing {{ member.name }}</label>
+                                    <input id="reason-{{ member.id }}" name="reason" placeholder="Reason for removal" required>
+                                    <button class="record-remove" type="submit">Remove</button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="5" class="records-empty">No members have been added yet.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="records-form">
+                <h3>Membership fee status</h3>
+                <form class="fee-table-filters" method="get" action="{% url 'records_dashboard' %}">
+                    <label for="fee-search">Search by member or class</label>
+                    <input id="fee-search" type="search" name="fee_search" value="{{ fee_search }}" placeholder="Member name or Senior class">
+                    <label for="fee-status-filter">Payment status</label>
+                    <select id="fee-status-filter" name="fee_status">
+                        <option value="">All statuses</option>
+                        <option value="complete" {% if fee_status == 'complete' %}selected{% endif %}>Complete</option>
+                        <option value="partial" {% if fee_status == 'partial' %}selected{% endif %}>Partially paid</option>
+                        <option value="outstanding" {% if fee_status == 'outstanding' %}selected{% endif %}>Outstanding</option>
+                    </select>
+                    <button class="button button-primary" type="submit">Filter members</button>
+                    {% if fee_search or fee_status %}<a class="button button-outline" href="{% url 'records_dashboard' %}">Clear filters</a>{% endif %}
+                </form>
+                <p class="records-hint">{% if fee_page.paginator.count %}Showing {{ fee_page.start_index }}–{{ fee_page.end_index }} of {{ fee_page.paginator.count }} members.{% else %}No matching members.{% endif %} Each member has a separate row; use search or payment-status filters to find records quickly.</p>
+                <div class="records-table-wrap">
+                    <table class="records-table fee-status-table">
+                        <thead><tr><th>Member</th><th>Class</th><th>Fee paid</th><th>Fee due</th><th>Balance</th><th>Status</th></tr></thead>
+                        <tbody>{% for member in fee_page %}
+                            <tr>
+                                <td><strong>{{ member.name }}</strong></td>
+                                <td>{{ member.class_name|default:'-' }}</td>
+                                <td>{{ member.membership_fee_paid|floatformat:2 }}</td>
+                                <td>{{ member.membership_fee_due|floatformat:2 }}</td>
+                                <td>{{ member.membership_fee_balance|floatformat:2 }}</td>
+                                <td><span class="fee-status-badge fee-status-{{ member.fee_status|lower }}">{{ member.fee_status }}</span></td>
+                            </tr>
+                        {% empty %}<tr><td colspan="6" class="records-empty">No members match these filters.</td></tr>{% endfor %}</tbody>
+                    </table>
+                </div>
+                {% if fee_page.paginator.num_pages > 1 %}
+                <nav class="fee-pagination" aria-label="Membership fee status pages">
+                    {% if fee_page.has_previous %}<a class="button button-outline" href="?fee_page={{ fee_page.previous_page_number }}&amp;fee_status={{ fee_status|urlencode }}&amp;fee_search={{ fee_search|urlencode }}">Previous</a>{% endif %}
+                    <div class="fee-page-links">{% for page_number in fee_page_range %}{% if page_number == fee_page.paginator.ELLIPSIS %}<span aria-hidden="true">…</span>{% elif page_number == fee_page.number %}<span class="current-fee-page" aria-current="page">{{ page_number }}</span>{% else %}<a href="?fee_page={{ page_number }}&amp;fee_status={{ fee_status|urlencode }}&amp;fee_search={{ fee_search|urlencode }}" aria-label="Fee status page {{ page_number }}">{{ page_number }}</a>{% endif %}{% endfor %}</div>
+                    <span>Page {{ fee_page.number }} of {{ fee_page.paginator.num_pages }}</span>
+                    {% if fee_page.has_next %}<a class="button button-outline" href="?fee_page={{ fee_page.next_page_number }}&amp;fee_status={{ fee_status|urlencode }}&amp;fee_search={{ fee_search|urlencode }}">Next</a>{% endif %}
+                </nav>
+                {% endif %}
+                {% if can_manage_finance %}<form method="post" action="{% url 'save_membership_fee' %}">{% csrf_token %}<h3>Update a member's membership fee</h3>{{ membership_fee_form.as_p }}<button class="button button-primary" type="submit">Save membership fee</button></form>{% endif %}
+            </div>
+        </section>
+
+        <section class="record-block" aria-labelledby="attendance-heading">
+            <div class="record-title-row">
+                <div>
+                    <p class="eyebrow blue">Meeting register</p>
+                    <h2 id="attendance-heading">Attendance</h2>
+                </div>
+            </div>
+            <form class="attendance-review" method="get" action="{% url 'records_dashboard' %}">
+                <label for="attendance-review-date">View attendance for</label>
+                <input id="attendance-review-date" type="date" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+                <button class="button button-outline" type="submit">Load date</button>
+            </form>
+            <form class="records-form" method="post" action="{% url 'record_attendance' %}">
+                {% csrf_token %}
+                <p class="attendance-date-field">{{ attendance_form.date.label_tag }} {{ attendance_form.date }}</p>
+                <p class="records-hint">Select the members who were present. Unchecked members will be recorded absent for this date.</p>
+                <div class="attendance-list">{{ attendance_form.present_members }}</div>
+                <button class="button button-primary" type="submit">Save attendance</button>
+            </form>
+        </section>
+
+        <section class="record-block" aria-labelledby="project-fees-heading">
+            <div class="record-title-row">
+                <div>
+                    <p class="eyebrow blue">Project costs</p>
+                    <h2 id="project-fees-heading">Project fees</h2>
+                </div>
+            </div>
+            {% if can_manage_projects %}<div class="project-record-forms">
+                <form class="records-form" method="post" enctype="multipart/form-data" action="{% url 'add_project' %}">
+                    {% csrf_token %}
+                    <h3>Add a project</h3>
+                    {{ project_form.as_p }}
+                    <button class="button button-primary" type="submit">Add project</button>
+                </form>
+                <form class="records-form" method="post" action="{% url 'save_project_fee' %}">
+                    {% csrf_token %}
+                    <h3>Record a member's fee</h3>
+                    {{ project_fee_form.as_p }}
+                    <button class="button button-primary" type="submit">Save fee balance</button>
+                </form>
+            </div>{% endif %}
+            <div class="records-table-wrap">
+                <table class="records-table">
+                    <thead><tr><th>Project</th><th>Member</th><th>Project fee paid / due</th></tr></thead>
+                    <tbody>
+                    {% for fee in project_fees %}
+                        <tr>
+                            <td>{{ fee.project.name }}</td>
+                            <td>{{ fee.member.name }}</td>
+                            <td><span class="fee-paid">{{ fee.amount_paid|floatformat:2 }}</span><span class="fee-separator"> / </span><span class="fee-due">{{ fee.amount_due|floatformat:2 }}</span></td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="3" class="records-empty">No project fees recorded yet.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="records-table-wrap"><table class="records-table"><thead><tr><th>Project</th><th>Member</th><th>Fee status</th></tr></thead><tbody>
+                {% for fee in project_fees %}<tr><td>{{ fee.project.name }}</td><td>{{ fee.member.name }}</td><td>{% if fee.amount_due <= fee.amount_paid %}Complete{% elif fee.amount_paid > 0 %}Partially paid{% else %}Outstanding{% endif %}</td></tr>{% empty %}<tr><td colspan="3" class="records-empty">No project members assigned yet.</td></tr>{% endfor %}
+            </tbody></table></div>
+            {% if can_manage_projects %}<div class="records-form"><h3>Update existing project details and image</h3>
+                {% for project in projects %}<form class="project-edit-form" method="post" enctype="multipart/form-data" action="{% url 'update_project' project.id %}">{% csrf_token %}
+                    <strong>{{ project.name }}</strong><label>Project name <input name="name" value="{{ project.name }}" required></label>
+                    <label>Description <textarea name="description" rows="2">{{ project.description }}</textarea></label>
+                    <label>Existing static image path <input name="image" value="{{ project.image }}"></label>
+                    <label>Upload replacement image <input type="file" name="image_file" accept="image/*"></label>
+                    <input type="hidden" name="active" value="on"><button class="button button-outline" type="submit">Save project changes</button>
+                </form>{% endfor %}
+            </div>{% endif %}
+        </section>
+
+        <section class="record-block" aria-labelledby="finance-heading">
+            <div class="record-title-row"><div><p class="eyebrow blue">Club finances</p><h2 id="finance-heading">Income &amp; expenditure by term</h2><p>Compare club income with expenditure for each academic year and term. Finance entries are recorded against the period active when they are entered.</p></div></div>
+            <div class="finance-chart" role="img" aria-label="Horizontal comparison chart of club income and expenditure for each academic year and term">
+                <div class="finance-legend"><span><i class="income-swatch"></i>Received</span><span><i class="spent-swatch"></i>Spent</span></div>
+                <div class="finance-period-head"><span>Academic period</span><span>Income</span><span>Expenditure</span></div>
+                {% for row in finance_rows %}<div class="finance-period-row"><strong>{{ row.academic_year }} · Term {{ row.term }}</strong><div class="finance-value"><div class="finance-track"><span class="finance-bar income-bar" style="width:{{ row.income_width }}%"></span></div><span>{{ row.income|floatformat:2 }}</span></div><div class="finance-value"><div class="finance-track"><span class="finance-bar spent-bar" style="width:{{ row.spent_width }}%"></span></div><span>{{ row.spent|floatformat:2 }}</span></div></div>{% empty %}<p>No finance records yet.</p>{% endfor %}
+            </div>
+            {% if can_manage_finance %}<div class="project-record-forms">
+                <form class="records-form" method="post" action="{% url 'add_club_income' %}">{% csrf_token %}<h3>Record activity income</h3>{{ income_form.as_p }}<button class="button button-primary" type="submit">Record income</button></form>
+                <form class="records-form" method="post" action="{% url 'add_project_expense' %}">{% csrf_token %}<h3>Record project spending</h3>{{ expense_form.as_p }}<button class="button button-primary" type="submit">Record expenditure</button></form>
+                <div class="records-form"><h3>Recent income</h3><ul class="audit-list">{% for income in incomes %}<li><strong>{{ income.project.name|default:income.activity }} · {{ income.amount|floatformat:2 }}</strong><span>{{ income.description }}</span><small>{{ income.recorded_by.username|default:'System' }} · {{ income.created_at|date:'d M Y H:i' }}</small></li>{% empty %}<li>No activity income recorded yet.</li>{% endfor %}</ul></div>
+                <div class="records-form"><h3>Recent expenses</h3><ul class="audit-list">{% for expense in expenses %}<li><strong>{{ expense.project.name|default:expense.activity }} · {{ expense.amount|floatformat:2 }}</strong><span>{{ expense.description }}</span><small>{{ expense.recorded_by.username|default:'System' }} · {{ expense.created_at|date:'d M Y H:i' }}</small></li>{% empty %}<li>No expenditures recorded yet.</li>{% endfor %}</ul></div>
+            </div>{% endif %}
+        </section>
+
+        <section class="record-block" aria-labelledby="announcements-heading">
+            <div class="record-title-row">
+                <div>
+                    <p class="eyebrow blue">Announcements</p>
+                    <h2 id="announcements-heading">Public &amp; leader updates</h2>
+                </div>
+            </div>
+            {% if can_manage_announcements %}<form class="records-form" method="post" action="{% url 'add_announcement' %}">
+                {% csrf_token %}
+                <h3>Publish an announcement</h3>
+                {{ announcement_form.as_p }}
+                <button class="button button-primary" type="submit">Publish</button>
+            </form>{% endif %}
+            <ul class="audit-list">
+                {% for announcement in announcements %}
+                    <li>
+                        <strong>{{ announcement.title }}</strong>
+                        <span>{{ announcement.message }}</span>
+                        <small>{{ announcement.created_by.username|default:'System' }} • {{ announcement.created_at|date:'d M Y H:i' }} • {% if announcement.is_public %}Public{% else %}Leaders only{% endif %}</small>
+                    </li>
+                {% empty %}
+                    <li>No announcements yet.</li>
+                {% endfor %}
+            </ul>
+        </section>
+
+        <section class="record-block" aria-labelledby="removed-heading">
+            <div class="record-title-row">
+                <div>
+                    <p class="eyebrow blue">Removed members</p>
+                    <h2 id="removed-heading">Removal records</h2>
+                </div>
+            </div>
+            <div class="records-table-wrap">
+                <table class="records-table">
+                    <thead><tr><th>Name</th><th>Reason</th><th>Removal confirmed by</th><th>Date / period</th><th>Status</th></tr></thead>
+                    <tbody>
+                    {% for member in removed_members %}
+                        <tr>
+                            <td>{{ member.name }}</td>
+                            <td>{{ member.removal_reason|default:'No reason specified.' }}</td>
+                            <td>{{ member.removed_by.username|default:'System' }}</td>
+                            <td>{{ member.removed_at|date:'d M Y H:i' }}<br><small>Week {{ member.removed_at|date:'W' }} · {{ member.removed_at|date:'F Y' }} · Term {{ member.removed_term|default:'-' }} / {{ member.removed_academic_year|default:'-' }}</small></td>
+                            <td>{% if member.is_removed %}Removed{% else %}Restored by {{ member.restored_by.username|default:'-' }} on {{ member.restored_at|date:'d M Y H:i' }}{% endif %}
+                                {% if member.is_removed and can_remove_leaders %}<form method="post" action="{% url 'restore_member' member.id %}">{% csrf_token %}<button class="button button-outline" type="submit">Restore member</button></form>{% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="5" class="records-empty">No removed members recorded yet.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        {% if can_manage_period %}<section class="record-block" aria-labelledby="period-heading">
+            <div class="record-title-row"><div><p class="eyebrow blue">Academic calendar</p><h2 id="period-heading">Start a new term or year</h2><p>Current period: {{ current_period.academic_year }}, Term {{ current_period.term }}. Starting a year advances eligible members one class.</p></div></div>
+            <form class="records-form" method="post" action="{% url 'start_new_period' %}">{% csrf_token %}{{ period_form.as_p }}<button class="button button-primary" type="submit">Confirm and start period</button></form>
+        </section>{% endif %}
+
+        <section class="record-block" aria-labelledby="history-heading">
+            <div class="record-title-row">
+                <div>
+                    <p class="eyebrow blue">Club history</p>
+                    <h2 id="history-heading">Audit trail</h2>
+                    <p class="records-hint">Audit entries expire after five hours.</p>
+                </div>
+            </div>
+            <ul class="audit-list">
+                {% for log in audit_logs %}
+                    <li data-audit-created="{{ log.created_at|date:'c' }}">
+                        <strong>{{ log.action|title }}</strong>
+                        <span>{{ log.details }}</span>
+                        <small>{{ log.model_name }} • {{ log.actor.username|default:'System' }} • {{ log.created_at|date:'d M Y H:i' }}</small>
+                    </li>
+                {% empty %}
+                    <li>No club history yet.</li>
+                {% endfor %}
+            </ul>
+        </section>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,9 @@
+{% extends 'web/base.html' %}
+{% block title %}Contact | BSK ICT Club{% endblock %}
+{% block meta_description %}Contact the Blessed Sacrament Secondary School ICT Club in Kimaanya, Masaka City, to ask a question or share an idea.{% endblock %}
+{% block social_title %}Contact the BSK ICT Club{% endblock %}
+{% block social_description %}Send a message to the Blessed Sacrament Secondary School ICT Club in Masaka City, Uganda.{% endblock %}
+{% block content %}
+<section class="page-hero page-hero-compact"><div class="container narrow"><p class="eyebrow blue">07 / Say hello</p><h1>Bring a question.<br><em>Start a conversation.</em></h1><p class="page-lede">Want to learn more about the club or share an idea? Send a message to the club email inbox. Club leaders can also review and respond to messages from their accounts.</p></div></section>
+<section class="section light-section"><div class="container contact-grid"><div class="contact-details"><p class="eyebrow blue">Find the club</p><h2>At school,<br><em>in community.</em></h2><div class="contact-item"><span class="contact-icon">+</span><div><strong>Location</strong><p>Blessed Sacrament Secondary School Kimaanya<br>Masaka City, Uganda</p></div></div><div class="contact-item"><span class="contact-icon">@</span><div><strong>Email</strong><p><a href="mailto:ictclubbsk@gmail.com">ictclubbsk@gmail.com</a></p></div></div></div><form class="contact-form" method="post" action="{% url 'contact' %}">{% csrf_token %}<h2>Send a message</h2><p class="contact-form-note">Your message will be available in the leaders' contact inbox.</p>{{ form.as_p }}<button class="button button-primary" type="submit">Send message <span>&#8599;</span></button></form></div></section>
+{% endblock %}

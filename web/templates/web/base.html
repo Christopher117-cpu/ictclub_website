@@ -1,0 +1,67 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="{% block meta_description %}Official website of the Blessed Sacrament Secondary School ICT Club in Kimaanya, Masaka City, Uganda.{% endblock %}">
+    <link rel="canonical" href="{{ canonical_url }}">
+    <meta name="robots" content="{% block robots_directive %}index,follow{% endblock %}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Blessed Sacrament Secondary School ICT Club">
+    <meta property="og:title" content="{% block social_title %}Blessed Sacrament Secondary School ICT Club{% endblock %}">
+    <meta property="og:description" content="{% block social_description %}Student technology projects and ICT learning at Blessed Sacrament Secondary School Kimaanya, Masaka City.{% endblock %}">
+    <meta property="og:url" content="{{ canonical_url }}">
+    <meta property="og:image" content="{{ social_image_url }}">
+    <meta property="og:image:alt" content="Blessed Sacrament Secondary School ICT Club emblem">
+    <meta name="twitter:card" content="summary">
+    <script type="application/ld+json">{{ structured_data_json|safe }}</script>
+    <title>{% block title %}BSK ICT Club{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap"></noscript>
+    <link rel="stylesheet" href="{% static 'web/css/style.css' %}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header">
+        <div class="container nav-wrap">
+            <a class="brand" href="{% url 'home' %}" aria-label="BSK ICT Club home">
+                <img class="brand-logo" src="{% static 'web/assets/logo.webp' %}" width="62" height="62" alt="Blessed Sacrament Secondary School ICT Club logo">
+                <span><strong>BSK</strong> ICT CLUB<small>Kimaanya, Masaka City</small></span>
+            </a>
+            <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open navigation menu">
+                <span></span><span></span><span></span>
+            </button>
+            <nav id="site-nav" class="site-nav" aria-label="Main navigation">
+                <a href="{% url 'home' %}" class="{% if request.resolver_match.url_name == 'home' %}active{% endif %}">Home</a>
+                <a href="{% url 'about' %}" class="{% if request.resolver_match.url_name == 'about' %}active{% endif %}">About</a>
+                <a href="{% url 'projects' %}" class="{% if request.resolver_match.url_name == 'projects' %}active{% endif %}">Projects</a>
+                <a href="{% url 'team' %}" class="{% if request.resolver_match.url_name == 'team' %}active{% endif %}">Team</a>
+                <a href="{% url 'records_dashboard' %}" class="{% if request.resolver_match.url_name == 'records_dashboard' %}active{% endif %}">Records</a>
+                <a href="{% url 'contact' %}" class="nav-cta">Connect <span aria-hidden="true">&#8599;</span></a>
+            </nav>
+        </div>
+    </header>
+    <div class="club-motto-banner" role="note"><span>Our motto</span><strong>Levereging ICT to spur Innovations</strong></div>
+    {% if public_announcements %}<section class="announcement-strip" aria-label="Public club announcements"><div class="container">{% for announcement in public_announcements %}<article><h2>{{ announcement.title }}</h2><p>{{ announcement.message }}</p><small>Posted by {{ announcement.created_by.username|default:'Club leadership' }} · {{ announcement.created_at|date:'d M Y H:i' }}</small></article>{% endfor %}</div></section>{% endif %}
+    {% if messages %}<div class="container site-messages" role="status">{% for message in messages %}<p class="{{ message.tags }}">{{ message|linebreaksbr }}</p>{% endfor %}</div>{% endif %}
+    <main id="main-content">{% block content %}{% endblock %}</main>
+    <footer class="site-footer">
+        <div class="container footer-grid">
+            <div>
+                <a class="brand brand-footer" href="{% url 'home' %}"><img class="brand-logo" src="{% static 'web/assets/logo.webp' %}" width="62" height="62" alt="Blessed Sacrament Secondary School ICT Club logo" loading="lazy"><span><strong>BSK</strong> ICT CLUB<small>Kimaanya, Masaka City</small></span></a>
+                <p class="footer-note">A student technology community learning, building and sharing at Blessed Sacrament Secondary School.</p>
+                <p class="footer-motto">Levereging ICT to spur Innovations</p>
+            </div>
+            <div><h2>Explore</h2><a href="{% url 'about' %}">About the club</a><a href="{% url 'projects' %}">Projects</a></div>
+            <div><h2>Discover</h2><a href="{% url 'team' %}">Our team</a><a href="{% url 'projects' %}">Club projects</a></div>
+            <div><h2>Find us</h2><p>Kimaanya, Masaka City<br>Uganda</p><a href="mailto:ictclubbsk@gmail.com" class="footer-link">ictclubbsk@gmail.com</a><a href="{% url 'contact' %}" class="footer-link">Get in touch &#8599;</a></div>
+        </div>
+        <div class="container footer-bottom"><span>&copy; {% now "Y" %} BSK ICT Club</span><span>Built by Mpoza Christopher for the BSK ICT Club</span></div>
+    </footer>
+    <script src="{% static 'web/js/main.js' %}"></script>
+</body>
+</html>
