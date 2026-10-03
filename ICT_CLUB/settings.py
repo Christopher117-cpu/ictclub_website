@@ -1,6 +1,9 @@
 from pathlib import Path
 import os
 import secrets
+from urllib.parse import urlparse
+
+from django.core.exceptions import ImproperlyConfigured
 
 
 # ============================================================
@@ -222,13 +225,47 @@ WSGI_APPLICATION = "ICT_CLUB.wsgi.application"
 # DATABASE
 # ============================================================
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 
-        "NAME": BASE_DIR / "db.sqlite3",
+if DATABASE_URL:
+    parsed_database_url = urlparse(DATABASE_URL)
+    database_name = parsed_database_url.path.lstrip("/")
+
+    if parsed_database_url.scheme in {
+        "postgres",
+        "postgresql",
+        "postgresql+psycopg",
+        "postgresql+psycopg2",
+    }:
+        DATABASES = {
+            "default": {
+                "ENGINE": "django.db.backends.postgresql",
+                "NAME": database_name,
+                "USER": parsed_database_url.username or "",
+                "PASSWORD": parsed_database_url.password or "",
+                "HOST": parsed_database_url.hostname or "",
+                "PORT": parsed_database_url.port or "",
+                "CONN_MAX_AGE": 60,
+            }
+        }
+    elif parsed_database_url.scheme == "sqlite":
+        DATABASES = {
+            "default": {
+                "ENGINE": "django.db.backends.sqlite3",
+                "NAME": BASE_DIR / "db.sqlite3",
+            }
+        }
+    else:
+        raise ImproperlyConfigured(
+            "DATABASE_URL must use postgres or sqlite."
+        )
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
     }
-}
 
 
 # ============================================================
@@ -385,8 +422,8 @@ SECURE_PROXY_SSL_HEADER = (
 )
 
 
-# Do not force redirects during initial deployment.
-SECURE_SSL_REDIRECT = False
+# Redirect to HTTPS in production while keeping local development easy.
+SECURE_SSL_REDIRECT = not DEBUG
 
 
 # ============================================================

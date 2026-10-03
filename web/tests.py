@@ -1,14 +1,18 @@
 import json
 import re
+from io import BytesIO
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from django.core import mail
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.http import HttpResponse
 from django.test import TestCase
 from django.test import RequestFactory, override_settings
 from django.contrib.auth.models import Group, User
 from django.urls import reverse
 from django.utils import timezone
+from PIL import Image
 
 from .models import (
 	Announcement, Attendance, AuditLog, ClubIncome, ClubPeriod, ClubProject, Leader,
@@ -136,6 +140,25 @@ class HomePageTests(TestCase):
 		self.assertContains(projects_page, 'An outdoor station for local weather measurements.')
 		self.assertContains(projects_page, 'four-1280.webp')
 		self.assertContains(projects_page, 'four-640.webp')
+
+	def test_uploaded_project_images_keep_original_and_generate_responsive_webp_variants(self):
+		buffer = BytesIO()
+		Image.new('RGB', (1600, 900), color='teal').save(buffer, format='PNG')
+		with TemporaryDirectory() as media_root:
+			with override_settings(MEDIA_ROOT=media_root):
+				project = ClubProject.objects.create(
+					name='Uploaded image optimization test',
+					image_file=SimpleUploadedFile('prototype.png', buffer.getvalue(), content_type='image/png'),
+				)
+				self.assertTrue(project.image_file.name.endswith('.png'))
+				self.assertTrue(project.image_640.name.endswith('-640.webp'))
+				self.assertTrue(project.image_1280.name.endswith('-1280.webp'))
+				with project.image_640.open('rb') as optimized_file:
+					with Image.open(optimized_file) as optimized_image:
+						self.assertEqual(optimized_image.size, (640, 360))
+				with project.image_1280.open('rb') as optimized_file:
+					with Image.open(optimized_file) as optimized_image:
+						self.assertEqual(optimized_image.size, (1280, 720))
 
 	def test_contact_form_sends_email_to_club_address(self):
 		response = self.client.post('/contact/', {

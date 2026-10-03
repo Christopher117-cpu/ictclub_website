@@ -38,6 +38,7 @@ class ClubProjectAdmin(admin.ModelAdmin):
 	list_display = ('name', 'active', 'added_by', 'updated_by')
 	list_filter = ('active',)
 	search_fields = ('name',)
+	readonly_fields = ('image_640', 'image_1280')
 
 
 @admin.register(ProjectFee)

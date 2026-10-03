@@ -1,7 +1,12 @@
 from django.conf import settings
+from django.core.files.base import ContentFile
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
+from pathlib import PurePosixPath
+from io import BytesIO
+
+from PIL import Image, ImageOps
 
 
 class Leader(models.Model):
@@ -97,6 +102,8 @@ class ClubProject(models.Model):
 	description = models.TextField(blank=True)
 	image = models.CharField(max_length=255, blank=True, help_text='Path to a static image or uploaded file relative to the project assets.')
 	image_file = models.ImageField(upload_to='projects/', blank=True)
+	image_640 = models.ImageField(upload_to='projects/responsive/', blank=True, editable=False)
+	image_1280 = models.ImageField(upload_to='projects/responsive/', blank=True, editable=False)
 	active = models.BooleanField(default=True)
 	created_at = models.DateTimeField(default=timezone.now)
 	updated_at = models.DateTimeField(default=timezone.now)
@@ -114,6 +121,49 @@ class ClubProject(models.Model):
 
 	def __str__(self):
 		return self.name
+
+	def save(self, *args, **kwargs):
+		previous_image = None
+		if self.pk:
+			previous_image = type(self).objects.filter(pk=self.pk).values(
+				'image_file', 'image_640', 'image_1280',
+			).first()
+		current_image_name = self.image_file.name or ''
+		image_changed = previous_image is None or previous_image['image_file'] != current_image_name
+		old_variants = (
+			(previous_image['image_640'], previous_image['image_1280'])
+			if previous_image else ('', '')
+		)
+		if image_changed:
+			self.image_640 = ''
+			self.image_1280 = ''
+
+		super().save(*args, **kwargs)
+		if not image_changed:
+			return
+
+		try:
+			if self.image_file:
+				with self.image_file.open('rb') as uploaded_image:
+					with Image.open(uploaded_image) as opened_image:
+						image = ImageOps.exif_transpose(opened_image)
+						image = image.convert('RGBA' if 'A' in image.getbands() else 'RGB')
+						for width, field_name in ((640, 'image_640'), (1280, 'image_1280')):
+							if image.width <= width:
+								continue
+							height = round(image.height * width / image.width)
+							variant = image.resize((width, height), Image.Resampling.LANCZOS)
+							buffer = BytesIO()
+							variant.save(buffer, format='WEBP', quality=80, method=4)
+							field = getattr(self, field_name)
+							filename = f'{PurePosixPath(self.image_file.name).stem}-{width}.webp'
+							field.save(filename, ContentFile(buffer.getvalue()), save=False)
+				super().save(update_fields=['image_640', 'image_1280'])
+		finally:
+			for field_name, old_name in zip(('image_640', 'image_1280'), old_variants):
+				field = getattr(self, field_name)
+				if old_name and old_name != field.name:
+					field.storage.delete(old_name)
 
 
 class ProjectFee(models.Model):

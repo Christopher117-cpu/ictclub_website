@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: ictclub-website
+    runtime: python
+    plan: free
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+      python manage.py collectstatic --noinput
+    startCommand: gunicorn ICT_CLUB.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 60
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: ICT_CLUB.production_settings
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_DEBUG
+        value: "false"
+      - key: DJANGO_ALLOWED_HOSTS
+        value: ictclub-website.onrender.com
+      - key: DJANGO_CSRF_TRUSTED_ORIGINS
+        value: https://ictclub-website.onrender.com
+      - key: PUBLIC_BASE_URL
+        value: https://ictclub-website.onrender.com
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ictclub-db
+          property: connectionString
+      - key: DJANGO_SECURE_SSL_REDIRECT
+        value: "true"
+
+databases:
+  - name: ictclub-db
+    databaseName: ictclub_db
+    user: ictclub
+    plan: free

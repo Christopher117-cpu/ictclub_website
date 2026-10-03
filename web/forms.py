@@ -76,6 +76,8 @@ class ProjectForm(forms.ModelForm):
 		uploaded_image = cleaned_data.get('image_file')
 		if uploaded_image and uploaded_image.size > 10 * 1024 * 1024:
 			self.add_error('image_file', 'Uploaded images must be 10 MB or smaller.')
+		elif uploaded_image and uploaded_image.width * uploaded_image.height > 20_000_000:
+			self.add_error('image_file', 'Uploaded images must be 20 megapixels or smaller.')
 		return cleaned_data
 
 
